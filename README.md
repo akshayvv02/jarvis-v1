@@ -70,7 +70,9 @@ JARVIS_WAKEWORD_THRESHOLD=0.5
 JARVIS_WAKEWORD_COOLDOWN_MS=1500
 ```
 
-Leave `JARVIS_AUDIO_DEVICE` empty to use the default input device.
+Leave `JARVIS_AUDIO_DEVICE` empty to use the default input device. On
+Raspberry Pi, a numeric PortAudio/sounddevice device id is often more reliable
+than an ALSA name.
 
 ## Raspberry Pi Audio Setup
 
@@ -154,7 +156,14 @@ Permission problems:
 Incorrect ALSA device:
 
 - Run `arecord -l`.
-- Set `JARVIS_AUDIO_DEVICE` to the correct device.
+- Run `docker compose run --rm --entrypoint /app/.venv/bin/python jarvis -c "import sounddevice as sd; print(sd.query_devices())"`.
+- Set `JARVIS_AUDIO_DEVICE` to the numeric input device shown by sounddevice.
+
+Invalid sample rate:
+
+- Jarvis first tries `JARVIS_SAMPLE_RATE`, default `16000`.
+- If the mic rejects that rate, Jarvis retries with the device default rate and
+  resamples internally to 16 kHz for openWakeWord.
 
 openWakeWord model unavailable:
 
