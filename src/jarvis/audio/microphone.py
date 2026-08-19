@@ -8,6 +8,7 @@ from scipy.signal import resample_poly
 import sounddevice as sd
 
 from jarvis.audio.interface import AudioChunk
+from jarvis.config import AudioDevice
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +17,7 @@ class SoundDeviceMicrophone:
     def __init__(
         self,
         *,
-        device: str | None,
+        device: AudioDevice,
         sample_rate: int,
         channels: int,
         chunk_size: int,

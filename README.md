@@ -158,6 +158,7 @@ Incorrect ALSA device:
 - Run `arecord -l`.
 - Run `docker compose run --rm --entrypoint /app/.venv/bin/python jarvis -c "import sounddevice as sd; print(sd.query_devices())"`.
 - Set `JARVIS_AUDIO_DEVICE` to the numeric input device shown by sounddevice.
+  For example: `JARVIS_AUDIO_DEVICE=1`.
 
 Invalid sample rate:
 

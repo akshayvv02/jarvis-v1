@@ -2,12 +2,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import os
+from typing import TypeAlias
+
+AudioDevice: TypeAlias = int | str | None
 
 
 @dataclass(frozen=True)
 class Settings:
     log_level: str = "INFO"
-    audio_device: str | None = None
+    audio_device: AudioDevice = None
     sample_rate: int = 16_000
     channels: int = 1
     chunk_size: int = 1_280
@@ -19,7 +22,7 @@ class Settings:
     def from_env(cls) -> "Settings":
         settings = cls(
             log_level=_get_str("JARVIS_LOG_LEVEL", cls.log_level).upper(),
-            audio_device=_get_optional_str("JARVIS_AUDIO_DEVICE"),
+            audio_device=_get_audio_device("JARVIS_AUDIO_DEVICE"),
             sample_rate=_get_int("JARVIS_SAMPLE_RATE", cls.sample_rate),
             channels=_get_int("JARVIS_CHANNELS", cls.channels),
             chunk_size=_get_int("JARVIS_CHUNK_SIZE", cls.chunk_size),
@@ -59,6 +62,15 @@ def _get_optional_str(name: str) -> str | None:
     value = os.getenv(name)
     if value is None or value.strip() == "":
         return None
+    return value
+
+
+def _get_audio_device(name: str) -> AudioDevice:
+    value = _get_optional_str(name)
+    if value is None:
+        return None
+    if value.isdigit():
+        return int(value)
     return value
 
 

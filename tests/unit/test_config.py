@@ -64,3 +64,13 @@ def test_invalid_integer_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
 
     with pytest.raises(ValueError, match="JARVIS_SAMPLE_RATE"):
         Settings.from_env()
+
+
+def test_numeric_audio_device_is_converted_to_int(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("JARVIS_AUDIO_DEVICE", "1")
+
+    settings = Settings.from_env()
+
+    assert settings.audio_device == 1
