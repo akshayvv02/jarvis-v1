@@ -1,0 +1,19 @@
+services:
+  jarvis:
+    build:
+      context: .
+    image: jarvis-v1:phase1
+    restart: unless-stopped
+    environment:
+      JARVIS_LOG_LEVEL: ${JARVIS_LOG_LEVEL:-INFO}
+      JARVIS_AUDIO_DEVICE: ${JARVIS_AUDIO_DEVICE:-}
+      JARVIS_SAMPLE_RATE: ${JARVIS_SAMPLE_RATE:-16000}
+      JARVIS_CHANNELS: ${JARVIS_CHANNELS:-1}
+      JARVIS_CHUNK_SIZE: ${JARVIS_CHUNK_SIZE:-1280}
+      JARVIS_WAKEWORD_MODEL: ${JARVIS_WAKEWORD_MODEL:-hey_jarvis}
+      JARVIS_WAKEWORD_THRESHOLD: ${JARVIS_WAKEWORD_THRESHOLD:-0.5}
+      JARVIS_WAKEWORD_COOLDOWN_MS: ${JARVIS_WAKEWORD_COOLDOWN_MS:-1500}
+    devices:
+      - /dev/snd:/dev/snd
+    group_add:
+      - audio
