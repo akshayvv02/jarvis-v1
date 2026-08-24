@@ -303,6 +303,7 @@ dependencies = [
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "numpy", version = "2.5.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "openwakeword" },
+    { name = "requests" },
     { name = "sounddevice" },
 ]
 
@@ -315,6 +316,7 @@ dev = [
 requires-dist = [
     { name = "numpy", specifier = ">=1.26" },
     { name = "openwakeword", specifier = ">=0.6" },
+    { name = "requests", specifier = ">=2.31" },
     { name = "sounddevice", specifier = ">=0.4.6" },
 ]
 

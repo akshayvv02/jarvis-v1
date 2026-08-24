@@ -21,7 +21,7 @@ uv run python -m jarvis
 ```
 
 On macOS this command requires a working microphone and local audio permissions.
-Most Phase 1 unit tests do not require microphone hardware.
+Most unit tests do not require microphone hardware or Sarvam network access.
 
 ## Audio Device Discovery
 

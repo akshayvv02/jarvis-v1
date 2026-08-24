@@ -74,7 +74,7 @@ class SoundDeviceMicrophone:
         if self._stream is None:
             raise RuntimeError("Audio input has not been started")
 
-        data, overflowed = self._stream.read(self._chunk_size)
+        data, overflowed = self._stream.read(self._stream_chunk_size)
         if overflowed:
             logger.warning("Audio input overflow detected")
 
@@ -87,6 +87,20 @@ class SoundDeviceMicrophone:
             sample_rate=self._sample_rate,
             channels=self._channels,
         )
+
+    def flush(self, duration_ms: int) -> None:
+        if self._stream is None:
+            raise RuntimeError("Audio input has not been started")
+        if duration_ms <= 0:
+            return
+
+        chunks = max(
+            1,
+            round((duration_ms / 1000) * self._sample_rate / self._chunk_size),
+        )
+        for _ in range(chunks):
+            self.read()
+        logger.info("Audio input flushed: duration_ms=%s", duration_ms)
 
     def stop(self) -> None:
         if self._stream is None:

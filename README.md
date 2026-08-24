@@ -1,17 +1,17 @@
 # Jarvis
 
-Jarvis is a self-hosted Raspberry Pi voice assistant foundation. Phase 1 only
-does local wake-word detection for "Hey Jarvis" and logs detections in the
-terminal.
+Jarvis is a self-hosted Raspberry Pi voice assistant foundation. Phase 2 listens
+for "Hey Jarvis", plays a local acknowledgement sound, records the spoken query,
+sends that short WAV file to Sarvam Saaras STT, and logs the transcript.
 
 Current capability:
 
 ```text
-Microphone -> openWakeWord -> "Hey Jarvis" -> terminal detection
+Microphone -> openWakeWord -> acknowledgement -> query recording -> Sarvam STT -> terminal transcript
 ```
 
-No STT, LLM, TTS, tools, memory, web search, smart-home integration, or API
-server is implemented in Phase 1.
+No LLM, TTS, tools, memory, web search, smart-home integration, or API server is
+implemented in Phase 2.
 
 ## Requirements
 
@@ -57,22 +57,44 @@ Copy the example environment file when you need local overrides:
 cp .env.example .env
 ```
 
-Phase 1 variables:
+Phase 2 variables:
 
 ```text
 JARVIS_LOG_LEVEL=INFO
+SARVAM_API_KEY=
+SARVAM_STT_MODEL=saaras:v3
+SARVAM_STT_MODE=transcribe
+SARVAM_STT_LANGUAGE_CODE=unknown
+SARVAM_STT_TIMEOUT_SECONDS=30
 JARVIS_AUDIO_DEVICE=
+JARVIS_AUDIO_OUTPUT_DEVICE=
 JARVIS_SAMPLE_RATE=16000
 JARVIS_CHANNELS=1
 JARVIS_CHUNK_SIZE=1280
+JARVIS_AUDIO_FLUSH_DURATION_MS=300
+JARVIS_ACK_AUDIO_PATH=assets/audio/acknowledgement.wav
 JARVIS_WAKEWORD_MODEL=hey_jarvis
 JARVIS_WAKEWORD_THRESHOLD=0.5
 JARVIS_WAKEWORD_COOLDOWN_MS=1500
+JARVIS_WAKEWORD_RESUME_DELAY_MS=1500
+JARVIS_WAKEWORD_RESET_DURATION_MS=1500
+JARVIS_QUERY_MAX_DURATION_SECONDS=30
+JARVIS_QUERY_NO_SPEECH_TIMEOUT_SECONDS=5
+JARVIS_SILENCE_DURATION_MS=1000
+JARVIS_SPEECH_START_THRESHOLD=500
+JARVIS_QUERY_TEMP_DIR=/tmp/jarvis
+JARVIS_CLEANUP_QUERY_AUDIO=true
 ```
 
 Leave `JARVIS_AUDIO_DEVICE` empty to use the default input device. On
 Raspberry Pi, a numeric PortAudio/sounddevice device id is often more reliable
 than an ALSA name.
+
+Set your real Sarvam key only in `.env`:
+
+```text
+SARVAM_API_KEY=your_real_key_here
+```
 
 ## Raspberry Pi Audio Setup
 
@@ -134,6 +156,10 @@ The microphone should appear inside the container. If it does not, check
 2026-08-19 13:00:01 INFO jarvis.wakeword.openwakeword_detector: Wake-word detector initialized
 2026-08-19 13:00:01 INFO jarvis.main: Listening for "Hey Jarvis"...
 2026-08-19 13:00:08 INFO jarvis.main: WAKE WORD DETECTED: hey_jarvis score=0.812
+2026-08-19 13:00:08 INFO jarvis.audio.playback: Acknowledgement played
+2026-08-19 13:00:09 INFO jarvis.audio.recorder: Listening for query speech
+2026-08-19 13:00:12 INFO jarvis.stt.sarvam: Transcription completed
+2026-08-19 13:00:12 INFO jarvis.main: You said: "bhai kal Bangalore mein baarish hogi kya"
 ```
 
 ## Troubleshooting
@@ -171,6 +197,16 @@ openWakeWord model unavailable:
 - Rebuild the image with internet access: `docker compose build --no-cache`.
 - Confirm the build step that downloads openWakeWord models completed.
 
+Sarvam key missing:
+
+- Put `SARVAM_API_KEY=...` in `.env`.
+- Do not commit `.env`.
+
+No query detected after acknowledgement:
+
+- Lower `JARVIS_SPEECH_START_THRESHOLD`.
+- Increase `JARVIS_QUERY_NO_SPEECH_TIMEOUT_SECONDS` if you pause before speaking.
+
 No detections:
 
 - Confirm sample rate is `16000`, channels is `1`, and chunk size is `1280`.
@@ -182,16 +218,26 @@ Excessive false positives:
 - Increase `JARVIS_WAKEWORD_THRESHOLD`.
 - Increase `JARVIS_WAKEWORD_COOLDOWN_MS` if one utterance logs repeatedly.
 
-## Phase 1 Validation Checklist
+Immediate re-trigger after transcription:
+
+- Increase `JARVIS_WAKEWORD_RESUME_DELAY_MS`.
+- Increase `JARVIS_WAKEWORD_RESET_DURATION_MS`.
+- Jarvis should return to `Listening for "Hey Jarvis"...` and wait for a fresh
+  wake-word utterance before recording another query.
+
+## Phase 2 Validation Checklist
 
 - Host microphone is visible with `arecord -l`.
 - Microphone is visible inside Docker.
 - Container starts successfully.
 - openWakeWord initializes successfully.
 - Jarvis logs `Listening for "Hey Jarvis"...`.
-- Saying "Hey Jarvis" logs a detection.
+- Saying "Hey Jarvis" logs a detection and plays the local acknowledgement.
+- Jarvis records only the query after the acknowledgement.
+- Jarvis sends the temporary WAV to Sarvam and prints the transcript.
+- Temporary query audio is cleaned up after successful transcription.
 - Repeated frames from one utterance are debounced.
-- Jarvis continues listening after detection.
+- Jarvis returns to wake-word detection after transcription.
 - `docker compose down` shuts down cleanly.
 - Container restarts with Docker Compose restart policy.
 - CPU and memory usage are observed on the Pi with `docker stats`.
@@ -200,3 +246,4 @@ Excessive false positives:
 
 - [Architecture](docs/architecture.md)
 - [Development](docs/development.md)
+- [Audio](docs/audio.md)

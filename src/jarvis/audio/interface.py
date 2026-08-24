@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Protocol
 
 import numpy as np
@@ -21,5 +22,13 @@ class AudioInput(Protocol):
     def read(self) -> AudioChunk:
         ...
 
+    def flush(self, duration_ms: int) -> None:
+        ...
+
     def stop(self) -> None:
+        ...
+
+
+class AudioOutput(Protocol):
+    def play(self, audio_file: Path) -> None:
         ...

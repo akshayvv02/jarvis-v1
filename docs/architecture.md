@@ -1,10 +1,9 @@
 # Jarvis Architecture
 
-Jarvis Phase 1 is intentionally small. It establishes the runtime shape for a
-Raspberry Pi voice assistant without implementing assistant features beyond
-local wake-word detection.
+Jarvis Phase 2 keeps the assistant small while extending the runtime from local
+wake-word detection into voice input and Sarvam STT transcription.
 
-## Current Phase 1 Flow
+## Current Phase 2 Flow
 
 ```text
 Microphone
@@ -22,6 +21,21 @@ OpenWakeWordDetector
 Detection Event
     |
     v
+AudioOutput acknowledgement
+    |
+    v
+QueryRecorder
+    |
+    v
+Temporary WAV
+    |
+    v
+SpeechToText
+    |
+    v
+SarvamSTT
+    |
+    v
 Logger
 ```
 
@@ -29,7 +43,7 @@ Logger
 
 ### Configuration
 
-`jarvis.config.Settings` loads the Phase 1 environment variables once at
+`jarvis.config.Settings` loads the environment variables once at
 startup and validates them before hardware or model initialization begins.
 
 ### Audio
@@ -49,6 +63,19 @@ wake-word boundary.
 `OpenWakeWordDetector` is the current provider adapter. It loads the
 openWakeWord model once during startup and returns detection events when model
 scores meet the configured threshold.
+
+### Query Recording
+
+`QueryRecorder` waits for speech after the acknowledgement sound, records until
+configurable silence, and writes a temporary 16 kHz mono 16-bit PCM WAV. It also
+enforces a maximum query duration so Sarvam REST requests stay under the
+30-second limit.
+
+### Speech To Text
+
+`SpeechToText` defines the provider-independent STT boundary. `SarvamSTT` is the
+current REST adapter for Sarvam Saaras and uses `SARVAM_API_KEY` from the
+environment.
 
 ### Debounce
 
@@ -71,7 +98,8 @@ expose network ports and does not run an API server.
 
 ## Future Architecture
 
-The planned assistant flow is future work and is not implemented in Phase 1.
+The planned assistant reasoning and response flow is future work and is not
+implemented in Phase 2.
 
 ```text
 Wake Word
@@ -112,5 +140,5 @@ jarvis/
 └── conversation/ # future
 ```
 
-Those future directories are not created yet because Phase 1 should not contain
+Those future directories are not created yet because Phase 2 should not contain
 placeholder functionality.

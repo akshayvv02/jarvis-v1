@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import os
+from pathlib import Path
 from typing import TypeAlias
 
 AudioDevice: TypeAlias = int | str | None
@@ -17,9 +18,27 @@ class Settings:
     wakeword_model: str = "hey_jarvis"
     wakeword_threshold: float = 0.5
     wakeword_cooldown_ms: int = 1_500
+    wakeword_resume_delay_ms: int = 1_500
+    wakeword_reset_duration_ms: int = 1_500
+    ack_audio_path: Path = Path("assets/audio/acknowledgement.wav")
+    audio_output_device: AudioDevice = None
+    audio_flush_duration_ms: int = 300
+    query_max_duration_seconds: float = 30.0
+    query_no_speech_timeout_seconds: float = 5.0
+    silence_duration_ms: int = 1_000
+    speech_start_threshold: float = 500.0
+    query_temp_dir: Path = Path("/tmp/jarvis")
+    cleanup_query_audio: bool = True
+    sarvam_api_key: str | None = None
+    sarvam_stt_model: str = "saaras:v3"
+    sarvam_stt_mode: str = "transcribe"
+    sarvam_stt_language_code: str = "unknown"
+    sarvam_stt_timeout_seconds: float = 30.0
 
     @classmethod
-    def from_env(cls) -> "Settings":
+    def from_env(cls, env_file: Path | None = Path(".env")) -> "Settings":
+        if env_file is not None:
+            load_env_file(env_file)
         settings = cls(
             log_level=_get_str("JARVIS_LOG_LEVEL", cls.log_level).upper(),
             audio_device=_get_audio_device("JARVIS_AUDIO_DEVICE"),
@@ -32,6 +51,48 @@ class Settings:
             ),
             wakeword_cooldown_ms=_get_int(
                 "JARVIS_WAKEWORD_COOLDOWN_MS", cls.wakeword_cooldown_ms
+            ),
+            wakeword_resume_delay_ms=_get_int(
+                "JARVIS_WAKEWORD_RESUME_DELAY_MS", cls.wakeword_resume_delay_ms
+            ),
+            wakeword_reset_duration_ms=_get_int(
+                "JARVIS_WAKEWORD_RESET_DURATION_MS", cls.wakeword_reset_duration_ms
+            ),
+            ack_audio_path=Path(_get_str("JARVIS_ACK_AUDIO_PATH", str(cls.ack_audio_path))),
+            audio_output_device=_get_audio_device("JARVIS_AUDIO_OUTPUT_DEVICE"),
+            audio_flush_duration_ms=_get_int(
+                "JARVIS_AUDIO_FLUSH_DURATION_MS", cls.audio_flush_duration_ms
+            ),
+            query_max_duration_seconds=_get_float(
+                "JARVIS_QUERY_MAX_DURATION_SECONDS",
+                cls.query_max_duration_seconds,
+            ),
+            query_no_speech_timeout_seconds=_get_float(
+                "JARVIS_QUERY_NO_SPEECH_TIMEOUT_SECONDS",
+                cls.query_no_speech_timeout_seconds,
+            ),
+            silence_duration_ms=_get_int(
+                "JARVIS_SILENCE_DURATION_MS", cls.silence_duration_ms
+            ),
+            speech_start_threshold=_get_float(
+                "JARVIS_SPEECH_START_THRESHOLD", cls.speech_start_threshold
+            ),
+            query_temp_dir=Path(
+                _get_str("JARVIS_QUERY_TEMP_DIR", str(cls.query_temp_dir))
+            ),
+            cleanup_query_audio=_get_bool(
+                "JARVIS_CLEANUP_QUERY_AUDIO", cls.cleanup_query_audio
+            ),
+            sarvam_api_key=_get_optional_str("SARVAM_API_KEY"),
+            sarvam_stt_model=_get_str("SARVAM_STT_MODEL", cls.sarvam_stt_model),
+            sarvam_stt_mode=_get_str("SARVAM_STT_MODE", cls.sarvam_stt_mode),
+            sarvam_stt_language_code=_get_str(
+                "SARVAM_STT_LANGUAGE_CODE",
+                cls.sarvam_stt_language_code,
+            ),
+            sarvam_stt_timeout_seconds=_get_float(
+                "SARVAM_STT_TIMEOUT_SECONDS",
+                cls.sarvam_stt_timeout_seconds,
             ),
         )
         settings.validate()
@@ -54,8 +115,32 @@ class Settings:
             raise ValueError("JARVIS_WAKEWORD_THRESHOLD must be > 0 and <= 1")
         if self.wakeword_cooldown_ms < 0:
             raise ValueError("JARVIS_WAKEWORD_COOLDOWN_MS must be >= 0")
+        if self.wakeword_resume_delay_ms < 0:
+            raise ValueError("JARVIS_WAKEWORD_RESUME_DELAY_MS must be >= 0")
+        if self.wakeword_reset_duration_ms < 0:
+            raise ValueError("JARVIS_WAKEWORD_RESET_DURATION_MS must be >= 0")
         if not self.wakeword_model.strip():
             raise ValueError("JARVIS_WAKEWORD_MODEL must not be empty")
+        if not self.ack_audio_path:
+            raise ValueError("JARVIS_ACK_AUDIO_PATH must not be empty")
+        if self.audio_flush_duration_ms < 0:
+            raise ValueError("JARVIS_AUDIO_FLUSH_DURATION_MS must be >= 0")
+        if not 0 < self.query_max_duration_seconds <= 30:
+            raise ValueError("JARVIS_QUERY_MAX_DURATION_SECONDS must be > 0 and <= 30")
+        if self.query_no_speech_timeout_seconds <= 0:
+            raise ValueError("JARVIS_QUERY_NO_SPEECH_TIMEOUT_SECONDS must be > 0")
+        if self.silence_duration_ms <= 0:
+            raise ValueError("JARVIS_SILENCE_DURATION_MS must be > 0")
+        if self.speech_start_threshold <= 0:
+            raise ValueError("JARVIS_SPEECH_START_THRESHOLD must be > 0")
+        if not self.sarvam_stt_model.strip():
+            raise ValueError("SARVAM_STT_MODEL must not be empty")
+        if not self.sarvam_stt_mode.strip():
+            raise ValueError("SARVAM_STT_MODE must not be empty")
+        if not self.sarvam_stt_language_code.strip():
+            raise ValueError("SARVAM_STT_LANGUAGE_CODE must not be empty")
+        if self.sarvam_stt_timeout_seconds <= 0:
+            raise ValueError("SARVAM_STT_TIMEOUT_SECONDS must be > 0")
 
 
 def _get_optional_str(name: str) -> str | None:
@@ -72,6 +157,22 @@ def _get_audio_device(name: str) -> AudioDevice:
     if value.isdigit():
         return int(value)
     return value
+
+
+def load_env_file(path: Path) -> None:
+    if not path.exists():
+        return
+
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+
+        name, value = line.split("=", 1)
+        name = name.strip()
+        value = value.strip().strip('"').strip("'")
+        if name and name not in os.environ:
+            os.environ[name] = value
 
 
 def _get_str(name: str, default: str) -> str:
@@ -96,3 +197,15 @@ def _get_float(name: str, default: float) -> float:
         return float(value)
     except ValueError as exc:
         raise ValueError(f"{name} must be a number; got {value!r}") from exc
+
+
+def _get_bool(name: str, default: bool) -> bool:
+    value = os.getenv(name)
+    if value is None or value.strip() == "":
+        return default
+    normalized = value.strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    raise ValueError(f"{name} must be a boolean; got {value!r}")

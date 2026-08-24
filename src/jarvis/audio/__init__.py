@@ -1,3 +1,3 @@
-from jarvis.audio.interface import AudioChunk, AudioInput
+from jarvis.audio.interface import AudioChunk, AudioInput, AudioOutput
 
-__all__ = ["AudioChunk", "AudioInput"]
+__all__ = ["AudioChunk", "AudioInput", "AudioOutput"]

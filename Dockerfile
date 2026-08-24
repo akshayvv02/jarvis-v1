@@ -17,6 +17,7 @@ RUN apt-get update \
 
 COPY pyproject.toml uv.lock README.md LICENSE ./
 COPY src ./src
+COPY assets ./assets
 
 RUN uv sync --frozen --no-dev
 
