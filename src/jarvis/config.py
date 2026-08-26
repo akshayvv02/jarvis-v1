@@ -34,6 +34,14 @@ class Settings:
     sarvam_stt_mode: str = "transcribe"
     sarvam_stt_language_code: str = "unknown"
     sarvam_stt_timeout_seconds: float = 30.0
+    sarvam_tts_model: str = "bulbul:v3"
+    sarvam_tts_speaker: str = "priya"
+    sarvam_tts_language: str = "en-IN"
+    sarvam_tts_pace: float = 1.0
+    sarvam_tts_output_format: str = "wav"
+    sarvam_tts_timeout_seconds: float = 30.0
+    tts_temp_dir: Path = Path("/tmp/jarvis")
+    cleanup_tts_audio: bool = True
     llm_provider: str = "gemini"
     gemini_api_key: str | None = None
     gemini_model: str = "gemini-3.5-flash-lite"
@@ -101,6 +109,29 @@ class Settings:
                 "SARVAM_STT_TIMEOUT_SECONDS",
                 cls.sarvam_stt_timeout_seconds,
             ),
+            sarvam_tts_model=_get_str("SARVAM_TTS_MODEL", cls.sarvam_tts_model),
+            sarvam_tts_speaker=_get_str(
+                "SARVAM_TTS_SPEAKER",
+                cls.sarvam_tts_speaker,
+            ),
+            sarvam_tts_language=_get_str(
+                "SARVAM_TTS_LANGUAGE",
+                cls.sarvam_tts_language,
+            ),
+            sarvam_tts_pace=_get_float("SARVAM_TTS_PACE", cls.sarvam_tts_pace),
+            sarvam_tts_output_format=_get_str(
+                "SARVAM_TTS_OUTPUT_FORMAT",
+                cls.sarvam_tts_output_format,
+            ),
+            sarvam_tts_timeout_seconds=_get_float(
+                "SARVAM_TTS_TIMEOUT_SECONDS",
+                cls.sarvam_tts_timeout_seconds,
+            ),
+            tts_temp_dir=Path(_get_str("JARVIS_TTS_TEMP_DIR", str(cls.tts_temp_dir))),
+            cleanup_tts_audio=_get_bool(
+                "JARVIS_CLEANUP_TTS_AUDIO",
+                cls.cleanup_tts_audio,
+            ),
             llm_provider=_get_str("JARVIS_LLM_PROVIDER", cls.llm_provider)
             .strip()
             .lower(),
@@ -162,6 +193,20 @@ class Settings:
             raise ValueError("SARVAM_STT_LANGUAGE_CODE must not be empty")
         if self.sarvam_stt_timeout_seconds <= 0:
             raise ValueError("SARVAM_STT_TIMEOUT_SECONDS must be > 0")
+        if not self.sarvam_tts_model.strip():
+            raise ValueError("SARVAM_TTS_MODEL must not be empty")
+        if not self.sarvam_tts_speaker.strip():
+            raise ValueError("SARVAM_TTS_SPEAKER must not be empty")
+        if self.sarvam_tts_speaker != self.sarvam_tts_speaker.lower():
+            raise ValueError("SARVAM_TTS_SPEAKER must be lowercase")
+        if self.sarvam_tts_language not in {"en-IN", "hi-IN"}:
+            raise ValueError("SARVAM_TTS_LANGUAGE must be 'en-IN' or 'hi-IN'")
+        if not 0.5 <= self.sarvam_tts_pace <= 2.0:
+            raise ValueError("SARVAM_TTS_PACE must be between 0.5 and 2.0")
+        if self.sarvam_tts_output_format != "wav":
+            raise ValueError("SARVAM_TTS_OUTPUT_FORMAT must be 'wav'")
+        if self.sarvam_tts_timeout_seconds <= 0:
+            raise ValueError("SARVAM_TTS_TIMEOUT_SECONDS must be > 0")
         if self.llm_provider != "gemini":
             raise ValueError("JARVIS_LLM_PROVIDER must be 'gemini'")
         if not self.gemini_model.strip():

@@ -80,10 +80,28 @@ def test_gemini_provider_maps_rate_limit_error() -> None:
         list(provider.stream(LLMRequest(user_text="say hi")))
 
 
+def test_gemini_provider_maps_read_timeout() -> None:
+    models = FakeModels()
+    models.error = FakeReadTimeout("The read operation timed out")
+    provider = GeminiProvider(
+        api_key="key",
+        model="gemini-test",
+        timeout_seconds=10,
+        client=FakeClient(models),
+    )
+
+    with pytest.raises(LLMError, match="timed out"):
+        list(provider.stream(LLMRequest(user_text="say hi")))
+
+
 class FakeGoogleError(Exception):
     def __init__(self, code: int) -> None:
         super().__init__("service rejected request")
         self.code = code
+
+
+class FakeReadTimeout(Exception):
+    pass
 
 
 def _clock(values: list[float]) -> object:

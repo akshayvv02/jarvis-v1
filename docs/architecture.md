@@ -1,10 +1,10 @@
 # Jarvis Architecture
 
-Jarvis Phase 3 keeps the assistant small while extending the runtime from local
+Jarvis Phase 4 keeps the assistant small while extending the runtime from local
 wake-word detection into voice input, Sarvam STT transcription, a dedicated
-personality layer, and a single Gemini LLM response.
+personality layer, a single Gemini LLM response, and Sarvam TTS playback.
 
-## Current Phase 3 Flow
+## Current Phase 4 Flow
 
 ```text
 Microphone
@@ -49,7 +49,28 @@ LLMProvider
 GeminiProvider
     |
     v
-Terminal response
+Streaming terminal response
+    |
+    v
+Final response text
+    |
+    v
+SpeechTextProcessor
+    |
+    v
+TextToSpeech
+    |
+    v
+SarvamTTS
+    |
+    v
+Temporary WAV
+    |
+    v
+AudioOutput
+    |
+    v
+Wired speaker
 ```
 
 ## Current Components
@@ -67,6 +88,10 @@ opening the input device, reading 16 kHz mono int16 audio chunks, and releasing
 the stream during shutdown.
 
 The wake-word detector does not own or configure the physical microphone.
+
+`jarvis.audio.interface.AudioOutput` defines playback. `SoundDeviceAudioOutput`
+plays both the local acknowledgement WAV and temporary TTS WAV files through
+the configured sounddevice output.
 
 ### Wake Word
 
@@ -107,6 +132,21 @@ prompt as `LLMRequest.system_prompt`.
 The Sarvam transcript remains the user message. Personality instructions are
 never appended to the transcript.
 
+### Text To Speech
+
+`TextToSpeech` defines the provider-independent TTS boundary. `SarvamTTS` is
+the current REST adapter for Sarvam Bulbul v3 and decodes the base64 WAV
+response into `TTSAudio`.
+
+The orchestration layer writes the synthesized WAV to `/tmp/jarvis`, plays it
+through `AudioOutput`, and deletes the temporary file afterward.
+
+### Speech Text
+
+`SpeechTextProcessor` performs lightweight display-to-speech cleanup before
+TTS. It removes obvious markdown and symbolic characters without changing the
+meaning of the response.
+
 ### Debounce
 
 `WakeWordDebouncer` suppresses repeated positive frames from a single spoken
@@ -116,10 +156,10 @@ microphone or openWakeWord.
 ### Application Lifecycle
 
 `jarvis.main.JarvisApp` composes configuration, audio input, wake-word
-detection, debouncing, STT, personality, and LLM generation. It handles
-`SIGINT` and `SIGTERM`, stops hardware resources cleanly, returns to idle after
-handled STT or LLM errors, and exits with a non-zero status on unrecoverable
-startup or runtime errors.
+detection, debouncing, STT, personality, LLM generation, TTS, and playback. It
+handles `SIGINT` and `SIGTERM`, stops hardware resources cleanly, returns to
+idle after handled STT, LLM, TTS, or playback errors, and exits with a non-zero
+status on unrecoverable startup or runtime errors.
 
 ## Docker Runtime
 
@@ -129,8 +169,8 @@ expose network ports and does not run an API server.
 
 ## Future Architecture
 
-Spoken output and tool execution are future work and are not implemented in
-Phase 3.
+Tool execution, memory, barge-in, and streaming TTS are future work and are not
+implemented in Phase 4.
 
 ```text
 Wake Word
@@ -151,7 +191,7 @@ LLM
 Tools
     |
     v
-Text-to-Speech
+Streaming Text-to-Speech
     |
     v
 Speaker
@@ -166,7 +206,8 @@ jarvis/
 ├── stt/
 ├── llm/
 ├── personality/
-├── tts/          # future
+├── speech/
+├── tts/
 ├── tools/        # future
 ├── memory/       # future
 └── conversation/ # future

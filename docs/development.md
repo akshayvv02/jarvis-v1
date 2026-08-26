@@ -30,6 +30,12 @@ Run Gemini integration tests only when you intentionally want to call the API:
 GEMINI_INTEGRATION_TESTS=true uv run pytest tests/integration/test_gemini_integration.py
 ```
 
+Run Sarvam integration tests only when you intentionally want to call Sarvam:
+
+```bash
+SARVAM_INTEGRATION_TESTS=true uv run pytest tests/integration
+```
+
 ## Personality Evaluation
 
 Phase 3.1 personality behavior is evaluated manually because LLM output is

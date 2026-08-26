@@ -5,6 +5,7 @@ import logging
 from pathlib import Path
 import signal
 import time
+import uuid
 
 import numpy as np
 
@@ -21,7 +22,9 @@ from jarvis.personality import (
     PersonalityConfig,
     PersonalityProvider,
 )
+from jarvis.speech import SpeechTextProcessor
 from jarvis.stt import SarvamSTT, SpeechToText, STTError
+from jarvis.tts import SarvamTTS, TTSRequest, TextToSpeech
 from jarvis.wakeword import OpenWakeWordDetector, WakeWordDebouncer, WakeWordDetector
 
 logger = logging.getLogger(__name__)
@@ -33,6 +36,7 @@ class AssistantState(Enum):
     LISTENING = "listening"
     TRANSCRIBING = "transcribing"
     PROCESSING = "processing"
+    SPEAKING = "speaking"
 
 
 class JarvisApp:
@@ -48,6 +52,8 @@ class JarvisApp:
         stt: SpeechToText,
         llm: LLMProvider,
         personality: PersonalityProvider,
+        tts: TextToSpeech,
+        speech_text_processor: SpeechTextProcessor,
     ) -> None:
         self._settings = settings
         self._audio_input = audio_input
@@ -58,6 +64,8 @@ class JarvisApp:
         self._stt = stt
         self._llm = llm
         self._personality = personality
+        self._tts = tts
+        self._speech_text_processor = speech_text_processor
         self._state = AssistantState.IDLE
         self._running = False
         self._ignore_wake_until = 0.0
@@ -87,6 +95,11 @@ class JarvisApp:
                 "Personality system prompt:\n%s",
                 self._personality.system_prompt(),
             )
+        logger.info(
+            "TTS provider: sarvam model=%s speaker=%s",
+            self._settings.sarvam_tts_model,
+            self._settings.sarvam_tts_speaker,
+        )
         try:
             self._wakeword_detector.start()
             self._audio_input.start()
@@ -135,16 +148,23 @@ class JarvisApp:
         self._transition(AssistantState.TRANSCRIBING)
         try:
             transcript_text: str | None = None
+            transcript_language: str | None = None
             if self._running:
                 transcript = self._stt.transcribe(recorded_audio)
                 transcript_text = transcript.text
+                transcript_language = transcript.language_code
                 logger.info('You said: "%s"', transcript.text)
                 if transcript.language_code:
                     logger.info("Language: %s", transcript.language_code)
                 if transcript.request_id:
                     logger.info("STT request: %s", transcript.request_id)
             if self._running and transcript_text:
-                self._process_transcript(transcript_text)
+                response_text = self._process_transcript(transcript_text)
+                if self._running and response_text:
+                    self._speak_response(
+                        response_text,
+                        transcript_language=transcript_language,
+                    )
         except STTError:
             logger.exception("Transcription failed")
         finally:
@@ -158,7 +178,7 @@ class JarvisApp:
         else:
             self._transition(AssistantState.IDLE)
 
-    def _process_transcript(self, transcript_text: str) -> None:
+    def _process_transcript(self, transcript_text: str) -> str | None:
         self._transition(AssistantState.PROCESSING)
         request = LLMRequest(
             user_text=transcript_text,
@@ -192,9 +212,57 @@ class JarvisApp:
                     total_ms,
                     len("".join(response_parts)),
                 )
+                return "".join(response_parts)
         except LLMError:
             print(flush=True)
             logger.exception("LLM response failed")
+        return None
+
+    def _speak_response(
+        self,
+        response_text: str,
+        *,
+        transcript_language: str | None,
+    ) -> None:
+        speech_text = self._speech_text_processor.process(response_text)
+        if not speech_text:
+            logger.warning("Skipping TTS because speech text is empty")
+            return
+
+        language_code = _tts_language(
+            transcript_language=transcript_language,
+            fallback=self._settings.sarvam_tts_language,
+        )
+        audio_path = self._settings.tts_temp_dir / f"tts-{uuid.uuid4()}.wav"
+        self._transition(AssistantState.SPEAKING)
+
+        try:
+            tts_started = time.perf_counter()
+            audio = self._tts.synthesize(
+                TTSRequest(
+                    text=speech_text,
+                    language_code=language_code,
+                    speaker=self._settings.sarvam_tts_speaker,
+                )
+            )
+            tts_generation_ms = (time.perf_counter() - tts_started) * 1000
+            logger.info(
+                "TTS generation completed: generation_ms=%.1f request_id=%s bytes=%s",
+                tts_generation_ms,
+                audio.request_id or "n/a",
+                len(audio.audio_bytes),
+            )
+
+            _write_tts_audio(audio_path, audio.audio_bytes)
+            playback_started = time.perf_counter()
+            self._audio_output.play(audio_path)
+            playback_ms = (time.perf_counter() - playback_started) * 1000
+            logger.info("TTS playback completed: playback_ms=%.1f", playback_ms)
+        except Exception:
+            logger.exception("Speech output failed")
+        finally:
+            if self._settings.cleanup_tts_audio:
+                _cleanup_recording(audio_path)
 
     def _resume_wake_detection(self) -> None:
         self._audio_input.flush(self._settings.audio_flush_duration_ms)
@@ -270,6 +338,14 @@ def build_app(settings: Settings) -> JarvisApp:
         model=settings.gemini_model,
         timeout_seconds=settings.gemini_request_timeout_seconds,
     )
+    tts = SarvamTTS(
+        api_key=settings.sarvam_api_key or "",
+        model=settings.sarvam_tts_model,
+        speaker=settings.sarvam_tts_speaker,
+        pace=settings.sarvam_tts_pace,
+        output_format=settings.sarvam_tts_output_format,
+        timeout_seconds=settings.sarvam_tts_timeout_seconds,
+    )
     personality = JarvisPersonality(
         PersonalityConfig(
             name=settings.personality,
@@ -287,6 +363,8 @@ def build_app(settings: Settings) -> JarvisApp:
         stt=stt,
         llm=llm,
         personality=personality,
+        tts=tts,
+        speech_text_processor=SpeechTextProcessor(),
     )
 
 
@@ -310,3 +388,17 @@ def _cleanup_recording(path: Path) -> None:
         path.unlink(missing_ok=True)
     except OSError:
         logger.exception("Failed to clean up query audio: %s", path)
+
+
+def _write_tts_audio(path: Path, audio_bytes: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("wb") as file:
+        file.write(audio_bytes)
+
+
+def _tts_language(*, transcript_language: str | None, fallback: str) -> str:
+    if transcript_language == "hi-IN":
+        return "hi-IN"
+    if transcript_language == "en-IN":
+        return "en-IN"
+    return fallback

@@ -1,18 +1,19 @@
 # Jarvis
 
-Jarvis is a self-hosted Raspberry Pi voice assistant foundation. Phase 3 listens
+Jarvis is a self-hosted Raspberry Pi voice assistant foundation. Phase 4 listens
 for "Hey Jarvis", plays a local acknowledgement sound, records the spoken query,
-sends that short WAV file to Sarvam Saaras STT, streams a Gemini response, and
-returns to wake-word listening.
+sends that short WAV file to Sarvam Saaras STT, streams a Gemini response,
+converts the final response to Sarvam Bulbul v3 speech, plays it through the
+local speaker, and returns to wake-word listening.
 
 Current capability:
 
 ```text
-Microphone -> openWakeWord -> acknowledgement -> query recording -> Sarvam STT -> Jarvis personality -> Gemini -> terminal response
+Microphone -> openWakeWord -> acknowledgement -> query recording -> Sarvam STT -> Jarvis personality -> Gemini -> Sarvam TTS -> wired speaker
 ```
 
-No TTS, tools, memory, web search, smart-home integration, or API server is
-implemented in Phase 3.
+No tools, memory, web search, smart-home integration, barge-in, streaming TTS,
+or API server is implemented in Phase 4.
 
 ## Requirements
 
@@ -58,7 +59,7 @@ Copy the example environment file when you need local overrides:
 cp .env.example .env
 ```
 
-Phase 3 variables:
+Phase 4 variables:
 
 ```text
 JARVIS_LOG_LEVEL=INFO
@@ -67,6 +68,14 @@ SARVAM_STT_MODEL=saaras:v3
 SARVAM_STT_MODE=transcribe
 SARVAM_STT_LANGUAGE_CODE=unknown
 SARVAM_STT_TIMEOUT_SECONDS=30
+SARVAM_TTS_MODEL=bulbul:v3
+SARVAM_TTS_SPEAKER=priya
+SARVAM_TTS_LANGUAGE=en-IN
+SARVAM_TTS_PACE=1.0
+SARVAM_TTS_OUTPUT_FORMAT=wav
+SARVAM_TTS_TIMEOUT_SECONDS=30
+JARVIS_TTS_TEMP_DIR=/tmp/jarvis
+JARVIS_CLEANUP_TTS_AUDIO=true
 JARVIS_LLM_PROVIDER=gemini
 GEMINI_API_KEY=
 GEMINI_MODEL=gemini-3.5-flash-lite
@@ -105,8 +114,8 @@ SARVAM_API_KEY=your_real_key_here
 GEMINI_API_KEY=your_real_key_here
 ```
 
-Personality currently affects only the LLM response style. It does not add
-memory, tools, TTS, weather, alarms, reminders, or smart-home actions.
+Personality currently affects the LLM response style before TTS. It does not
+add memory, tools, weather, alarms, reminders, or smart-home actions.
 
 Humor levels:
 
@@ -132,6 +141,23 @@ ls -la /dev/snd
 ```
 
 If the host cannot see the microphone, fix that before starting Docker.
+
+For a wired AUX speaker on Raspberry Pi, confirm the host can play audio:
+
+```bash
+aplay assets/audio/acknowledgement.wav
+```
+
+Inside Docker, list output devices and set `JARVIS_AUDIO_OUTPUT_DEVICE` to the
+numeric output id. On many Pi setups this is `0` for `bcm2835 Headphones`:
+
+```bash
+docker compose run --rm --entrypoint /app/.venv/bin/python jarvis -c "import sounddevice as sd; print(sd.query_devices())"
+```
+
+```text
+JARVIS_AUDIO_OUTPUT_DEVICE=0
+```
 
 ## Docker
 
@@ -178,13 +204,15 @@ The microphone should appear inside the container. If it does not, check
 2026-08-19 13:00:01 INFO jarvis.main: Personality: indian_casual version=jarvis-indian-v1 humor_level=2
 2026-08-19 13:00:01 INFO jarvis.main: Listening for "Hey Jarvis"...
 2026-08-19 13:00:08 INFO jarvis.main: WAKE WORD DETECTED: hey_jarvis score=0.812
-2026-08-19 13:00:08 INFO jarvis.audio.playback: Acknowledgement played
+2026-08-19 13:00:08 INFO jarvis.audio.playback: Audio played
 2026-08-19 13:00:09 INFO jarvis.audio.recorder: Listening for query speech
 2026-08-19 13:00:12 INFO jarvis.stt.sarvam: Transcription completed
 2026-08-19 13:00:12 INFO jarvis.main: You said: "bhai kal Bangalore mein baarish hogi kya"
 2026-08-19 13:00:12 INFO jarvis.main: Assistant state: processing
 Jarvis: Haan, main short answer mein bata sakta hoon...
-2026-08-19 13:00:13 INFO jarvis.llm.gemini: LLM response completed
+2026-08-19 13:00:13 INFO jarvis.main: Assistant state: speaking
+2026-08-19 13:00:14 INFO jarvis.tts.sarvam: TTS synthesis completed
+2026-08-19 13:00:17 INFO jarvis.main: TTS playback completed
 ```
 
 ## Troubleshooting
@@ -231,6 +259,13 @@ Gemini key missing:
 
 - Put `GEMINI_API_KEY=...` in `.env`.
 - Do not commit `.env`.
+
+No speaker audio:
+
+- Confirm the Pi host plays `assets/audio/acknowledgement.wav` with `aplay`.
+- Set `JARVIS_AUDIO_OUTPUT_DEVICE=0` for the Pi 3.5 mm output if Docker lists
+  `bcm2835 Headphones` as device `0`.
+- Prefer AUX over Bluetooth for the main Jarvis runtime.
 
 No query detected after acknowledgement:
 

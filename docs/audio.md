@@ -22,6 +22,34 @@ the microphone:
 JARVIS_AUDIO_DEVICE=1
 ```
 
-For Phase 2, the acknowledgement sound is local and should be short. Query
-recording starts after playback and after a short microphone flush so the wake
-word and acknowledgement are not uploaded to Sarvam.
+The acknowledgement sound is local and should be short. Query recording starts
+after playback and after a short microphone flush so the wake word and
+acknowledgement are not uploaded to Sarvam.
+
+Phase 4 also plays synthesized Sarvam TTS WAV files through the same
+`AudioOutput` layer.
+
+## Wired Speaker
+
+For the Raspberry Pi runtime, prefer a wired AUX speaker connected to the Pi's
+3.5 mm output. This avoids Bluetooth latency, dynamic device IDs, sleep behavior,
+and container passthrough complexity.
+
+Verify host playback first:
+
+```bash
+cd ~/Desktop/apps/jarvis-v1
+aplay assets/audio/acknowledgement.wav
+```
+
+Then inspect Docker audio devices:
+
+```bash
+docker compose run --rm --entrypoint /app/.venv/bin/python jarvis -c "import sounddevice as sd; print(sd.query_devices())"
+```
+
+If the 3.5 mm output appears as `bcm2835 Headphones` at device `0`, configure:
+
+```text
+JARVIS_AUDIO_OUTPUT_DEVICE=0
+```

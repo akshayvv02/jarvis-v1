@@ -22,10 +22,10 @@ class SoundDeviceAudioOutput:
             sd.play(samples, samplerate=sample_rate, device=self._device)
             sd.wait()
         except Exception:
-            logger.exception("Audio acknowledgement playback failed")
+            logger.exception("Audio playback failed: %s", audio_file)
             raise
 
-        logger.info("Acknowledgement played: %s", audio_file)
+        logger.info("Audio played: %s", audio_file)
 
 
 def _read_wav(audio_file: Path) -> tuple[np.ndarray, int]:

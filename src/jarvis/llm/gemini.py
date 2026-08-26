@@ -107,12 +107,17 @@ def _build_generate_config(system_prompt: str | None) -> Any:
 def _friendly_error_message(exc: Exception) -> str:
     status_code = getattr(exc, "code", None) or getattr(exc, "status_code", None)
     message = str(exc)
+    exception_name = type(exc).__name__.lower()
 
     if status_code in {401, 403}:
         return "Gemini authentication failed"
     if status_code == 429:
         return "Gemini rate limit exceeded"
-    if isinstance(exc, TimeoutError) or "timeout" in message.lower():
+    if (
+        isinstance(exc, TimeoutError)
+        or "timeout" in message.lower()
+        or "timeout" in exception_name
+    ):
         return "Gemini request timed out"
     if status_code:
         return f"Gemini request failed: status={status_code}"

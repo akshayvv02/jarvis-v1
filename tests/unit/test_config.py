@@ -24,6 +24,12 @@ def test_defaults_load(monkeypatch: pytest.MonkeyPatch) -> None:
         "JARVIS_PERSONALITY",
         "JARVIS_HUMOR_LEVEL",
         "JARVIS_PROMPT_DEBUG",
+        "SARVAM_TTS_MODEL",
+        "SARVAM_TTS_SPEAKER",
+        "SARVAM_TTS_LANGUAGE",
+        "SARVAM_TTS_PACE",
+        "SARVAM_TTS_OUTPUT_FORMAT",
+        "SARVAM_TTS_TIMEOUT_SECONDS",
     ]:
         monkeypatch.delenv(name, raising=False)
 
@@ -46,6 +52,12 @@ def test_defaults_load(monkeypatch: pytest.MonkeyPatch) -> None:
     assert settings.personality == "indian_casual"
     assert settings.humor_level == 2
     assert settings.prompt_debug is False
+    assert settings.sarvam_tts_model == "bulbul:v3"
+    assert settings.sarvam_tts_speaker == "priya"
+    assert settings.sarvam_tts_language == "en-IN"
+    assert settings.sarvam_tts_pace == 1.0
+    assert settings.sarvam_tts_output_format == "wav"
+    assert settings.sarvam_tts_timeout_seconds == 30.0
 
 
 def test_environment_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -66,6 +78,12 @@ def test_environment_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("JARVIS_PERSONALITY", "INDIAN_CASUAL")
     monkeypatch.setenv("JARVIS_HUMOR_LEVEL", "3")
     monkeypatch.setenv("JARVIS_PROMPT_DEBUG", "true")
+    monkeypatch.setenv("SARVAM_TTS_MODEL", "bulbul:v3")
+    monkeypatch.setenv("SARVAM_TTS_SPEAKER", "ishita")
+    monkeypatch.setenv("SARVAM_TTS_LANGUAGE", "hi-IN")
+    monkeypatch.setenv("SARVAM_TTS_PACE", "1.1")
+    monkeypatch.setenv("SARVAM_TTS_OUTPUT_FORMAT", "wav")
+    monkeypatch.setenv("SARVAM_TTS_TIMEOUT_SECONDS", "15")
 
     settings = Settings.from_env(env_file=None)
 
@@ -86,6 +104,10 @@ def test_environment_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
     assert settings.personality == "indian_casual"
     assert settings.humor_level == 3
     assert settings.prompt_debug is True
+    assert settings.sarvam_tts_speaker == "ishita"
+    assert settings.sarvam_tts_language == "hi-IN"
+    assert settings.sarvam_tts_pace == 1.1
+    assert settings.sarvam_tts_timeout_seconds == 15.0
 
 
 def test_invalid_threshold_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -123,4 +145,11 @@ def test_invalid_humor_level_is_rejected(monkeypatch: pytest.MonkeyPatch) -> Non
     monkeypatch.setenv("JARVIS_HUMOR_LEVEL", "4")
 
     with pytest.raises(ValueError, match="JARVIS_HUMOR_LEVEL"):
+        Settings.from_env(env_file=None)
+
+
+def test_invalid_tts_pace_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SARVAM_TTS_PACE", "2.5")
+
+    with pytest.raises(ValueError, match="SARVAM_TTS_PACE"):
         Settings.from_env(env_file=None)
