@@ -17,6 +17,10 @@ def test_defaults_load(monkeypatch: pytest.MonkeyPatch) -> None:
         "JARVIS_WAKEWORD_COOLDOWN_MS",
         "JARVIS_WAKEWORD_RESUME_DELAY_MS",
         "JARVIS_WAKEWORD_RESET_DURATION_MS",
+        "JARVIS_LLM_PROVIDER",
+        "GEMINI_API_KEY",
+        "GEMINI_MODEL",
+        "GEMINI_REQUEST_TIMEOUT_SECONDS",
     ]:
         monkeypatch.delenv(name, raising=False)
 
@@ -32,6 +36,10 @@ def test_defaults_load(monkeypatch: pytest.MonkeyPatch) -> None:
     assert settings.wakeword_cooldown_ms == 1_500
     assert settings.wakeword_resume_delay_ms == 1_500
     assert settings.wakeword_reset_duration_ms == 1_500
+    assert settings.llm_provider == "gemini"
+    assert settings.gemini_api_key is None
+    assert settings.gemini_model == "gemini-3.5-flash-lite"
+    assert settings.gemini_request_timeout_seconds == 30.0
 
 
 def test_environment_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -45,6 +53,10 @@ def test_environment_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("JARVIS_WAKEWORD_COOLDOWN_MS", "900")
     monkeypatch.setenv("JARVIS_WAKEWORD_RESUME_DELAY_MS", "700")
     monkeypatch.setenv("JARVIS_WAKEWORD_RESET_DURATION_MS", "600")
+    monkeypatch.setenv("JARVIS_LLM_PROVIDER", "gemini")
+    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
+    monkeypatch.setenv("GEMINI_MODEL", "gemini-test-model")
+    monkeypatch.setenv("GEMINI_REQUEST_TIMEOUT_SECONDS", "12")
 
     settings = Settings.from_env(env_file=None)
 
@@ -58,6 +70,10 @@ def test_environment_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
     assert settings.wakeword_cooldown_ms == 900
     assert settings.wakeword_resume_delay_ms == 700
     assert settings.wakeword_reset_duration_ms == 600
+    assert settings.llm_provider == "gemini"
+    assert settings.gemini_api_key == "test-gemini-key"
+    assert settings.gemini_model == "gemini-test-model"
+    assert settings.gemini_request_timeout_seconds == 12.0
 
 
 def test_invalid_threshold_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -82,3 +98,10 @@ def test_numeric_audio_device_is_converted_to_int(
     settings = Settings.from_env(env_file=None)
 
     assert settings.audio_device == 1
+
+
+def test_invalid_llm_provider_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("JARVIS_LLM_PROVIDER", "other")
+
+    with pytest.raises(ValueError, match="JARVIS_LLM_PROVIDER"):
+        Settings.from_env(env_file=None)

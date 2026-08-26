@@ -9,3 +9,6 @@ def configure_logging(level: str) -> None:
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
+    if level != "DEBUG":
+        logging.getLogger("google_genai").setLevel(logging.WARNING)
+        logging.getLogger("httpx").setLevel(logging.WARNING)

@@ -22,6 +22,13 @@ uv run python -m jarvis
 
 On macOS this command requires a working microphone and local audio permissions.
 Most unit tests do not require microphone hardware or Sarvam network access.
+Gemini and Sarvam integration tests are opt-in and skipped by default.
+
+Run Gemini integration tests only when you intentionally want to call the API:
+
+```bash
+GEMINI_INTEGRATION_TESTS=true uv run pytest tests/integration/test_gemini_integration.py
+```
 
 ## Audio Device Discovery
 

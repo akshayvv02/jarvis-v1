@@ -1,17 +1,18 @@
 # Jarvis
 
-Jarvis is a self-hosted Raspberry Pi voice assistant foundation. Phase 2 listens
+Jarvis is a self-hosted Raspberry Pi voice assistant foundation. Phase 3 listens
 for "Hey Jarvis", plays a local acknowledgement sound, records the spoken query,
-sends that short WAV file to Sarvam Saaras STT, and logs the transcript.
+sends that short WAV file to Sarvam Saaras STT, streams a Gemini response, and
+returns to wake-word listening.
 
 Current capability:
 
 ```text
-Microphone -> openWakeWord -> acknowledgement -> query recording -> Sarvam STT -> terminal transcript
+Microphone -> openWakeWord -> acknowledgement -> query recording -> Sarvam STT -> Gemini -> terminal response
 ```
 
-No LLM, TTS, tools, memory, web search, smart-home integration, or API server is
-implemented in Phase 2.
+No TTS, tools, memory, web search, smart-home integration, or API server is
+implemented in Phase 3.
 
 ## Requirements
 
@@ -57,7 +58,7 @@ Copy the example environment file when you need local overrides:
 cp .env.example .env
 ```
 
-Phase 2 variables:
+Phase 3 variables:
 
 ```text
 JARVIS_LOG_LEVEL=INFO
@@ -66,6 +67,10 @@ SARVAM_STT_MODEL=saaras:v3
 SARVAM_STT_MODE=transcribe
 SARVAM_STT_LANGUAGE_CODE=unknown
 SARVAM_STT_TIMEOUT_SECONDS=30
+JARVIS_LLM_PROVIDER=gemini
+GEMINI_API_KEY=
+GEMINI_MODEL=gemini-3.5-flash-lite
+GEMINI_REQUEST_TIMEOUT_SECONDS=30
 JARVIS_AUDIO_DEVICE=
 JARVIS_AUDIO_OUTPUT_DEVICE=
 JARVIS_SAMPLE_RATE=16000
@@ -90,10 +95,11 @@ Leave `JARVIS_AUDIO_DEVICE` empty to use the default input device. On
 Raspberry Pi, a numeric PortAudio/sounddevice device id is often more reliable
 than an ALSA name.
 
-Set your real Sarvam key only in `.env`:
+Set your real Sarvam and Gemini keys only in `.env`:
 
 ```text
 SARVAM_API_KEY=your_real_key_here
+GEMINI_API_KEY=your_real_key_here
 ```
 
 ## Raspberry Pi Audio Setup
@@ -160,6 +166,9 @@ The microphone should appear inside the container. If it does not, check
 2026-08-19 13:00:09 INFO jarvis.audio.recorder: Listening for query speech
 2026-08-19 13:00:12 INFO jarvis.stt.sarvam: Transcription completed
 2026-08-19 13:00:12 INFO jarvis.main: You said: "bhai kal Bangalore mein baarish hogi kya"
+2026-08-19 13:00:12 INFO jarvis.main: Assistant state: processing
+Jarvis: Haan, main short answer mein bata sakta hoon...
+2026-08-19 13:00:13 INFO jarvis.llm.gemini: LLM response completed
 ```
 
 ## Troubleshooting
@@ -200,6 +209,11 @@ openWakeWord model unavailable:
 Sarvam key missing:
 
 - Put `SARVAM_API_KEY=...` in `.env`.
+- Do not commit `.env`.
+
+Gemini key missing:
+
+- Put `GEMINI_API_KEY=...` in `.env`.
 - Do not commit `.env`.
 
 No query detected after acknowledgement:

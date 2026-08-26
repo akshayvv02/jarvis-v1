@@ -8,6 +8,7 @@ import numpy as np
 from jarvis.audio.interface import AudioChunk
 from jarvis.audio.recorder import RecordedAudio
 from jarvis.config import Settings
+from jarvis.llm.models import LLMChunk, LLMRequest
 from jarvis.main import AssistantState, JarvisApp
 from jarvis.stt.models import Transcript
 
@@ -79,6 +80,15 @@ class FakeSTT:
         return Transcript(text="hello", language_code="en-IN", request_id="request-1")
 
 
+class FakeLLM:
+    def __init__(self) -> None:
+        self.requests: list[LLMRequest] = []
+
+    def stream(self, request: LLMRequest) -> object:
+        self.requests.append(request)
+        yield LLMChunk(text="hi there")
+
+
 def test_handle_wake_word_runs_phase_2_states(tmp_path: Path) -> None:
     audio_input = FakeAudioInput()
     audio_output = FakeAudioOutput()
@@ -86,6 +96,7 @@ def test_handle_wake_word_runs_phase_2_states(tmp_path: Path) -> None:
     recorder = FakeRecorder(recorded_audio)
     wakeword_detector = FakeWakeWordDetector()
     stt = FakeSTT()
+    llm = FakeLLM()
     settings = Settings(
         ack_audio_path=tmp_path / "ack.wav",
         audio_flush_duration_ms=123,
@@ -100,6 +111,7 @@ def test_handle_wake_word_runs_phase_2_states(tmp_path: Path) -> None:
         wakeword_detector=wakeword_detector,
         debouncer=FakeDebouncer(),  # type: ignore[arg-type]
         stt=stt,
+        llm=llm,
     )
     app._running = True
 
@@ -110,6 +122,7 @@ def test_handle_wake_word_runs_phase_2_states(tmp_path: Path) -> None:
     assert audio_input.flush_calls == [123, 123]
     assert recorder.calls == 1
     assert stt.calls == 1
+    assert [request.user_text for request in llm.requests] == ["hello"]
     assert wakeword_detector.process_calls > 0
     assert not recorded_audio.path.exists()
 

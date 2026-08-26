@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = { file = "LICENSE" }
 dependencies = [
+    "google-genai>=1.0",
     "numpy>=1.26",
     "openwakeword>=0.6",
     "requests>=2.31",

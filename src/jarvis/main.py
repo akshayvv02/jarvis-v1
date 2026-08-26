@@ -14,7 +14,9 @@ from jarvis.audio.microphone import SoundDeviceMicrophone
 from jarvis.audio.playback import SoundDeviceAudioOutput
 from jarvis.audio.recorder import QueryRecorder, QueryRecorderConfig
 from jarvis.config import Settings
+from jarvis.llm import GeminiProvider, LLMError, LLMProvider, LLMRequest
 from jarvis.logging_config import configure_logging
+from jarvis.prompts import ASSISTANT_SYSTEM_PROMPT
 from jarvis.stt import SarvamSTT, SpeechToText, STTError
 from jarvis.wakeword import OpenWakeWordDetector, WakeWordDebouncer, WakeWordDetector
 
@@ -26,6 +28,7 @@ class AssistantState(Enum):
     ACKNOWLEDGING = "acknowledging"
     LISTENING = "listening"
     TRANSCRIBING = "transcribing"
+    PROCESSING = "processing"
 
 
 class JarvisApp:
@@ -39,6 +42,7 @@ class JarvisApp:
         wakeword_detector: WakeWordDetector,
         debouncer: WakeWordDebouncer,
         stt: SpeechToText,
+        llm: LLMProvider,
     ) -> None:
         self._settings = settings
         self._audio_input = audio_input
@@ -47,6 +51,7 @@ class JarvisApp:
         self._wakeword_detector = wakeword_detector
         self._debouncer = debouncer
         self._stt = stt
+        self._llm = llm
         self._state = AssistantState.IDLE
         self._running = False
         self._ignore_wake_until = 0.0
@@ -108,13 +113,17 @@ class JarvisApp:
 
         self._transition(AssistantState.TRANSCRIBING)
         try:
+            transcript_text: str | None = None
             if self._running:
                 transcript = self._stt.transcribe(recorded_audio)
+                transcript_text = transcript.text
                 logger.info('You said: "%s"', transcript.text)
                 if transcript.language_code:
                     logger.info("Language: %s", transcript.language_code)
                 if transcript.request_id:
                     logger.info("STT request: %s", transcript.request_id)
+            if self._running and transcript_text:
+                self._process_transcript(transcript_text)
         except STTError:
             logger.exception("Transcription failed")
         finally:
@@ -127,6 +136,44 @@ class JarvisApp:
             self._resume_wake_detection()
         else:
             self._transition(AssistantState.IDLE)
+
+    def _process_transcript(self, transcript_text: str) -> None:
+        self._transition(AssistantState.PROCESSING)
+        request = LLMRequest(
+            user_text=transcript_text,
+            system_prompt=ASSISTANT_SYSTEM_PROMPT,
+        )
+
+        try:
+            response_parts: list[str] = []
+            started = time.perf_counter()
+            first_chunk_at: float | None = None
+            logger.info("Jarvis response:")
+            for chunk in self._llm.stream(request):
+                if not self._running:
+                    break
+                if first_chunk_at is None:
+                    first_chunk_at = time.perf_counter()
+                    print("Jarvis: ", end="", flush=True)
+                response_parts.append(chunk.text)
+                print(chunk.text, end="", flush=True)
+            print(flush=True)
+            if response_parts:
+                total_ms = (time.perf_counter() - started) * 1000
+                ttft_ms = (
+                    None
+                    if first_chunk_at is None
+                    else (first_chunk_at - started) * 1000
+                )
+                logger.info(
+                    "Jarvis response completed: ttft_ms=%s total_ms=%.1f chars=%s",
+                    "n/a" if ttft_ms is None else f"{ttft_ms:.1f}",
+                    total_ms,
+                    len("".join(response_parts)),
+                )
+        except LLMError:
+            print(flush=True)
+            logger.exception("LLM response failed")
 
     def _resume_wake_detection(self) -> None:
         self._audio_input.flush(self._settings.audio_flush_duration_ms)
@@ -197,6 +244,11 @@ def build_app(settings: Settings) -> JarvisApp:
         language_code=settings.sarvam_stt_language_code,
         timeout_seconds=settings.sarvam_stt_timeout_seconds,
     )
+    llm = GeminiProvider(
+        api_key=settings.gemini_api_key or "",
+        model=settings.gemini_model,
+        timeout_seconds=settings.gemini_request_timeout_seconds,
+    )
     return JarvisApp(
         settings=settings,
         audio_input=audio_input,
@@ -205,6 +257,7 @@ def build_app(settings: Settings) -> JarvisApp:
         wakeword_detector=wakeword_detector,
         debouncer=debouncer,
         stt=stt,
+        llm=llm,
     )
 
 

@@ -1,9 +1,10 @@
 # Jarvis Architecture
 
-Jarvis Phase 2 keeps the assistant small while extending the runtime from local
-wake-word detection into voice input and Sarvam STT transcription.
+Jarvis Phase 3 keeps the assistant small while extending the runtime from local
+wake-word detection into voice input, Sarvam STT transcription, and a single
+Gemini LLM response.
 
-## Current Phase 2 Flow
+## Current Phase 3 Flow
 
 ```text
 Microphone
@@ -36,7 +37,13 @@ SpeechToText
 SarvamSTT
     |
     v
-Logger
+LLMProvider
+    |
+    v
+GeminiProvider
+    |
+    v
+Terminal response
 ```
 
 ## Current Components
@@ -77,6 +84,13 @@ enforces a maximum query duration so Sarvam REST requests stay under the
 current REST adapter for Sarvam Saaras and uses `SARVAM_API_KEY` from the
 environment.
 
+### LLM
+
+`LLMProvider` defines the provider-independent response boundary. `GeminiProvider`
+uses the official Google Gen AI SDK to stream a single-turn response from the
+configured `GEMINI_MODEL`. It does not send conversation history, enable search
+grounding, call tools, or persist memory.
+
 ### Debounce
 
 `WakeWordDebouncer` suppresses repeated positive frames from a single spoken
@@ -86,8 +100,9 @@ microphone or openWakeWord.
 ### Application Lifecycle
 
 `jarvis.main.JarvisApp` composes configuration, audio input, wake-word
-detection, and debouncing. It handles `SIGINT` and `SIGTERM`, stops hardware
-resources cleanly, and exits with a non-zero status on unrecoverable startup or
+detection, debouncing, STT, and LLM generation. It handles `SIGINT` and
+`SIGTERM`, stops hardware resources cleanly, returns to idle after handled STT
+or LLM errors, and exits with a non-zero status on unrecoverable startup or
 runtime errors.
 
 ## Docker Runtime
@@ -98,8 +113,8 @@ expose network ports and does not run an API server.
 
 ## Future Architecture
 
-The planned assistant reasoning and response flow is future work and is not
-implemented in Phase 2.
+Spoken output and tool execution are future work and are not implemented in
+Phase 3.
 
 ```text
 Wake Word
@@ -132,13 +147,10 @@ Future package ownership is expected to grow along these lines:
 jarvis/
 ├── audio/
 ├── wakeword/
-├── stt/          # future
-├── llm/          # future
+├── stt/
+├── llm/
 ├── tts/          # future
 ├── tools/        # future
 ├── memory/       # future
 └── conversation/ # future
 ```
-
-Those future directories are not created yet because Phase 2 should not contain
-placeholder functionality.

@@ -34,6 +34,10 @@ class Settings:
     sarvam_stt_mode: str = "transcribe"
     sarvam_stt_language_code: str = "unknown"
     sarvam_stt_timeout_seconds: float = 30.0
+    llm_provider: str = "gemini"
+    gemini_api_key: str | None = None
+    gemini_model: str = "gemini-3.5-flash-lite"
+    gemini_request_timeout_seconds: float = 30.0
 
     @classmethod
     def from_env(cls, env_file: Path | None = Path(".env")) -> "Settings":
@@ -94,6 +98,15 @@ class Settings:
                 "SARVAM_STT_TIMEOUT_SECONDS",
                 cls.sarvam_stt_timeout_seconds,
             ),
+            llm_provider=_get_str("JARVIS_LLM_PROVIDER", cls.llm_provider)
+            .strip()
+            .lower(),
+            gemini_api_key=_get_optional_str("GEMINI_API_KEY"),
+            gemini_model=_get_str("GEMINI_MODEL", cls.gemini_model),
+            gemini_request_timeout_seconds=_get_float(
+                "GEMINI_REQUEST_TIMEOUT_SECONDS",
+                cls.gemini_request_timeout_seconds,
+            ),
         )
         settings.validate()
         return settings
@@ -141,6 +154,12 @@ class Settings:
             raise ValueError("SARVAM_STT_LANGUAGE_CODE must not be empty")
         if self.sarvam_stt_timeout_seconds <= 0:
             raise ValueError("SARVAM_STT_TIMEOUT_SECONDS must be > 0")
+        if self.llm_provider != "gemini":
+            raise ValueError("JARVIS_LLM_PROVIDER must be 'gemini'")
+        if not self.gemini_model.strip():
+            raise ValueError("GEMINI_MODEL must not be empty")
+        if self.gemini_request_timeout_seconds <= 0:
+            raise ValueError("GEMINI_REQUEST_TIMEOUT_SECONDS must be > 0")
 
 
 def _get_optional_str(name: str) -> str | None:
