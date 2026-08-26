@@ -1,8 +1,8 @@
 # Jarvis Architecture
 
 Jarvis Phase 3 keeps the assistant small while extending the runtime from local
-wake-word detection into voice input, Sarvam STT transcription, and a single
-Gemini LLM response.
+wake-word detection into voice input, Sarvam STT transcription, a dedicated
+personality layer, and a single Gemini LLM response.
 
 ## Current Phase 3 Flow
 
@@ -35,6 +35,12 @@ SpeechToText
     |
     v
 SarvamSTT
+    |
+    v
+PersonalityProvider
+    |
+    v
+System Prompt
     |
     v
 LLMProvider
@@ -91,6 +97,16 @@ uses the official Google Gen AI SDK to stream a single-turn response from the
 configured `GEMINI_MODEL`. It does not send conversation history, enable search
 grounding, call tools, or persist memory.
 
+### Personality
+
+`PersonalityProvider` defines Jarvis application behavior independently from the
+Gemini transport. `JarvisPersonality` builds the system prompt from
+`JARVIS_PERSONALITY` and `JARVIS_HUMOR_LEVEL`, then `JarvisApp` passes that
+prompt as `LLMRequest.system_prompt`.
+
+The Sarvam transcript remains the user message. Personality instructions are
+never appended to the transcript.
+
 ### Debounce
 
 `WakeWordDebouncer` suppresses repeated positive frames from a single spoken
@@ -100,10 +116,10 @@ microphone or openWakeWord.
 ### Application Lifecycle
 
 `jarvis.main.JarvisApp` composes configuration, audio input, wake-word
-detection, debouncing, STT, and LLM generation. It handles `SIGINT` and
-`SIGTERM`, stops hardware resources cleanly, returns to idle after handled STT
-or LLM errors, and exits with a non-zero status on unrecoverable startup or
-runtime errors.
+detection, debouncing, STT, personality, and LLM generation. It handles
+`SIGINT` and `SIGTERM`, stops hardware resources cleanly, returns to idle after
+handled STT or LLM errors, and exits with a non-zero status on unrecoverable
+startup or runtime errors.
 
 ## Docker Runtime
 
@@ -149,6 +165,7 @@ jarvis/
 ├── wakeword/
 ├── stt/
 ├── llm/
+├── personality/
 ├── tts/          # future
 ├── tools/        # future
 ├── memory/       # future

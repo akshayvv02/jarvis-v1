@@ -8,7 +8,7 @@ returns to wake-word listening.
 Current capability:
 
 ```text
-Microphone -> openWakeWord -> acknowledgement -> query recording -> Sarvam STT -> Gemini -> terminal response
+Microphone -> openWakeWord -> acknowledgement -> query recording -> Sarvam STT -> Jarvis personality -> Gemini -> terminal response
 ```
 
 No TTS, tools, memory, web search, smart-home integration, or API server is
@@ -71,6 +71,9 @@ JARVIS_LLM_PROVIDER=gemini
 GEMINI_API_KEY=
 GEMINI_MODEL=gemini-3.5-flash-lite
 GEMINI_REQUEST_TIMEOUT_SECONDS=30
+JARVIS_PERSONALITY=indian_casual
+JARVIS_HUMOR_LEVEL=2
+JARVIS_PROMPT_DEBUG=false
 JARVIS_AUDIO_DEVICE=
 JARVIS_AUDIO_OUTPUT_DEVICE=
 JARVIS_SAMPLE_RATE=16000
@@ -100,6 +103,18 @@ Set your real Sarvam and Gemini keys only in `.env`:
 ```text
 SARVAM_API_KEY=your_real_key_here
 GEMINI_API_KEY=your_real_key_here
+```
+
+Personality currently affects only the LLM response style. It does not add
+memory, tools, TTS, weather, alarms, reminders, or smart-home actions.
+
+Humor levels:
+
+```text
+0 = professional
+1 = friendly
+2 = witty, default
+3 = more playful
 ```
 
 ## Raspberry Pi Audio Setup
@@ -160,6 +175,7 @@ The microphone should appear inside the container. If it does not, check
 2026-08-19 13:00:00 INFO jarvis.main: Jarvis starting
 2026-08-19 13:00:01 INFO jarvis.audio.microphone: Audio input initialized
 2026-08-19 13:00:01 INFO jarvis.wakeword.openwakeword_detector: Wake-word detector initialized
+2026-08-19 13:00:01 INFO jarvis.main: Personality: indian_casual version=jarvis-indian-v1 humor_level=2
 2026-08-19 13:00:01 INFO jarvis.main: Listening for "Hey Jarvis"...
 2026-08-19 13:00:08 INFO jarvis.main: WAKE WORD DETECTED: hey_jarvis score=0.812
 2026-08-19 13:00:08 INFO jarvis.audio.playback: Acknowledgement played

@@ -21,6 +21,9 @@ def test_defaults_load(monkeypatch: pytest.MonkeyPatch) -> None:
         "GEMINI_API_KEY",
         "GEMINI_MODEL",
         "GEMINI_REQUEST_TIMEOUT_SECONDS",
+        "JARVIS_PERSONALITY",
+        "JARVIS_HUMOR_LEVEL",
+        "JARVIS_PROMPT_DEBUG",
     ]:
         monkeypatch.delenv(name, raising=False)
 
@@ -40,6 +43,9 @@ def test_defaults_load(monkeypatch: pytest.MonkeyPatch) -> None:
     assert settings.gemini_api_key is None
     assert settings.gemini_model == "gemini-3.5-flash-lite"
     assert settings.gemini_request_timeout_seconds == 30.0
+    assert settings.personality == "indian_casual"
+    assert settings.humor_level == 2
+    assert settings.prompt_debug is False
 
 
 def test_environment_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -57,6 +63,9 @@ def test_environment_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
     monkeypatch.setenv("GEMINI_MODEL", "gemini-test-model")
     monkeypatch.setenv("GEMINI_REQUEST_TIMEOUT_SECONDS", "12")
+    monkeypatch.setenv("JARVIS_PERSONALITY", "INDIAN_CASUAL")
+    monkeypatch.setenv("JARVIS_HUMOR_LEVEL", "3")
+    monkeypatch.setenv("JARVIS_PROMPT_DEBUG", "true")
 
     settings = Settings.from_env(env_file=None)
 
@@ -74,6 +83,9 @@ def test_environment_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
     assert settings.gemini_api_key == "test-gemini-key"
     assert settings.gemini_model == "gemini-test-model"
     assert settings.gemini_request_timeout_seconds == 12.0
+    assert settings.personality == "indian_casual"
+    assert settings.humor_level == 3
+    assert settings.prompt_debug is True
 
 
 def test_invalid_threshold_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -104,4 +116,11 @@ def test_invalid_llm_provider_is_rejected(monkeypatch: pytest.MonkeyPatch) -> No
     monkeypatch.setenv("JARVIS_LLM_PROVIDER", "other")
 
     with pytest.raises(ValueError, match="JARVIS_LLM_PROVIDER"):
+        Settings.from_env(env_file=None)
+
+
+def test_invalid_humor_level_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("JARVIS_HUMOR_LEVEL", "4")
+
+    with pytest.raises(ValueError, match="JARVIS_HUMOR_LEVEL"):
         Settings.from_env(env_file=None)

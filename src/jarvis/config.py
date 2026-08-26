@@ -38,6 +38,9 @@ class Settings:
     gemini_api_key: str | None = None
     gemini_model: str = "gemini-3.5-flash-lite"
     gemini_request_timeout_seconds: float = 30.0
+    personality: str = "indian_casual"
+    humor_level: int = 2
+    prompt_debug: bool = False
 
     @classmethod
     def from_env(cls, env_file: Path | None = Path(".env")) -> "Settings":
@@ -107,6 +110,11 @@ class Settings:
                 "GEMINI_REQUEST_TIMEOUT_SECONDS",
                 cls.gemini_request_timeout_seconds,
             ),
+            personality=_get_str("JARVIS_PERSONALITY", cls.personality)
+            .strip()
+            .lower(),
+            humor_level=_get_int("JARVIS_HUMOR_LEVEL", cls.humor_level),
+            prompt_debug=_get_bool("JARVIS_PROMPT_DEBUG", cls.prompt_debug),
         )
         settings.validate()
         return settings
@@ -160,6 +168,10 @@ class Settings:
             raise ValueError("GEMINI_MODEL must not be empty")
         if self.gemini_request_timeout_seconds <= 0:
             raise ValueError("GEMINI_REQUEST_TIMEOUT_SECONDS must be > 0")
+        if self.personality != "indian_casual":
+            raise ValueError("JARVIS_PERSONALITY must be 'indian_casual'")
+        if self.humor_level not in {0, 1, 2, 3}:
+            raise ValueError("JARVIS_HUMOR_LEVEL must be one of 0, 1, 2, or 3")
 
 
 def _get_optional_str(name: str) -> str | None:

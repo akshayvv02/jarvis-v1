@@ -16,7 +16,11 @@ from jarvis.audio.recorder import QueryRecorder, QueryRecorderConfig
 from jarvis.config import Settings
 from jarvis.llm import GeminiProvider, LLMError, LLMProvider, LLMRequest
 from jarvis.logging_config import configure_logging
-from jarvis.prompts import ASSISTANT_SYSTEM_PROMPT
+from jarvis.personality import (
+    JarvisPersonality,
+    PersonalityConfig,
+    PersonalityProvider,
+)
 from jarvis.stt import SarvamSTT, SpeechToText, STTError
 from jarvis.wakeword import OpenWakeWordDetector, WakeWordDebouncer, WakeWordDetector
 
@@ -43,6 +47,7 @@ class JarvisApp:
         debouncer: WakeWordDebouncer,
         stt: SpeechToText,
         llm: LLMProvider,
+        personality: PersonalityProvider,
     ) -> None:
         self._settings = settings
         self._audio_input = audio_input
@@ -52,6 +57,7 @@ class JarvisApp:
         self._debouncer = debouncer
         self._stt = stt
         self._llm = llm
+        self._personality = personality
         self._state = AssistantState.IDLE
         self._running = False
         self._ignore_wake_until = 0.0
@@ -66,6 +72,21 @@ class JarvisApp:
 
     def run(self) -> int:
         logger.info("Jarvis starting")
+        logger.info(
+            "LLM provider: gemini model=%s",
+            self._settings.gemini_model,
+        )
+        logger.info(
+            "Personality: %s version=%s humor_level=%s",
+            self._personality.name,
+            self._personality.version,
+            self._personality.humor_level,
+        )
+        if self._settings.prompt_debug:
+            logger.debug(
+                "Personality system prompt:\n%s",
+                self._personality.system_prompt(),
+            )
         try:
             self._wakeword_detector.start()
             self._audio_input.start()
@@ -141,7 +162,7 @@ class JarvisApp:
         self._transition(AssistantState.PROCESSING)
         request = LLMRequest(
             user_text=transcript_text,
-            system_prompt=ASSISTANT_SYSTEM_PROMPT,
+            system_prompt=self._personality.system_prompt(),
         )
 
         try:
@@ -249,6 +270,13 @@ def build_app(settings: Settings) -> JarvisApp:
         model=settings.gemini_model,
         timeout_seconds=settings.gemini_request_timeout_seconds,
     )
+    personality = JarvisPersonality(
+        PersonalityConfig(
+            name=settings.personality,
+            humor_level=settings.humor_level,
+            prompt_debug=settings.prompt_debug,
+        )
+    )
     return JarvisApp(
         settings=settings,
         audio_input=audio_input,
@@ -258,6 +286,7 @@ def build_app(settings: Settings) -> JarvisApp:
         debouncer=debouncer,
         stt=stt,
         llm=llm,
+        personality=personality,
     )
 
 

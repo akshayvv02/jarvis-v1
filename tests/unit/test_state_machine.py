@@ -89,6 +89,15 @@ class FakeLLM:
         yield LLMChunk(text="hi there")
 
 
+class FakePersonality:
+    name = "indian_casual"
+    version = "test-v1"
+    humor_level = 2
+
+    def system_prompt(self) -> str:
+        return "personality system prompt"
+
+
 def test_handle_wake_word_runs_phase_2_states(tmp_path: Path) -> None:
     audio_input = FakeAudioInput()
     audio_output = FakeAudioOutput()
@@ -112,6 +121,7 @@ def test_handle_wake_word_runs_phase_2_states(tmp_path: Path) -> None:
         debouncer=FakeDebouncer(),  # type: ignore[arg-type]
         stt=stt,
         llm=llm,
+        personality=FakePersonality(),
     )
     app._running = True
 
@@ -123,6 +133,9 @@ def test_handle_wake_word_runs_phase_2_states(tmp_path: Path) -> None:
     assert recorder.calls == 1
     assert stt.calls == 1
     assert [request.user_text for request in llm.requests] == ["hello"]
+    assert [request.system_prompt for request in llm.requests] == [
+        "personality system prompt"
+    ]
     assert wakeword_detector.process_calls > 0
     assert not recorded_audio.path.exists()
 

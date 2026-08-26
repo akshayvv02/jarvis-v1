@@ -30,6 +30,13 @@ Run Gemini integration tests only when you intentionally want to call the API:
 GEMINI_INTEGRATION_TESTS=true uv run pytest tests/integration/test_gemini_integration.py
 ```
 
+## Personality Evaluation
+
+Phase 3.1 personality behavior is evaluated manually because LLM output is
+nondeterministic. Use `docs/personality-evaluation.md` as the prompt set and
+score responses for naturalness, brevity, language matching, serious-context
+handling, and voice readability.
+
 ## Audio Device Discovery
 
 List devices through the Python audio stack:
